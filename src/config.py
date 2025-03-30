@@ -20,6 +20,10 @@ class Configuration:
     minimization_steps: int
     use_lca: bool
     use_jit: bool
+    use_langevin: bool
+    friction_coef: float
+    use_berendsen: bool
+    tau: float
 
 def validate_positive(value, name):
     """Check if a value is positive."""
@@ -53,6 +57,10 @@ def parse_args():
     parser.add_argument("--minimization_steps", type=int, default=10000, help="Number of minimization steps")
     parser.add_argument("--use_lca", action="store_true", help="Use Linked Cell Algorithm (LCA)")
     parser.add_argument("--use_jit", action="store_true", help="Use Just-In-Time (JIT) optimization")
+    parser.add_argument("--use_langevin", action="store_true", help="Use Langevin thermostat")
+    parser.add_argument("--friction_coef", type=float, default=1, help="Friction coefficient for Langevin thermostat")
+    parser.add_argument("--use_berendsen", action="store_true", help="Use Berendsen thermostat")
+    parser.add_argument("--tau", type=float, default=1, help="Tau for Berendsen thermostat.")
 
     args = parser.parse_args()
 
@@ -66,6 +74,8 @@ def parse_args():
     validate_positive(args.epsilon, "Epsilon")
     validate_positive(args.rcutoff, "Cutoff radius")
     validate_positive(args.minimization_steps, "Number of minimization steps")
+    validate_positive(args.friction_coef, "Langevin friction coefficent")
+    validate_positive(args.tau, "Berendsen thermostat constant tau")
     validate_dimension(args.dimensions)
 
     # Check for rcutoff and sigma consistency
@@ -91,5 +101,9 @@ def parse_args():
         args.minimize,
         args.minimization_steps,
         args.use_lca,
-        args.use_jit
+        args.use_jit,
+        args.use_langevin,
+        args.friction_coef,
+        args.use_berendsen,
+        args.tau
     )

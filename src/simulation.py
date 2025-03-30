@@ -5,7 +5,7 @@ from config import Configuration
 from output_and_plots import save_xyz, track_comp_time
 from forces import compute_forces_lca, compute_forces_naive
 from forces_jit import compute_forces_lca_jit, compute_forces_naive_jit
-from thermostats import langevin_thermostat
+from thermostats import langevin_thermostat, berendsen_thermostat
 
 class Simulation:
     def __init__(self, config: Configuration):
@@ -27,13 +27,17 @@ class Simulation:
         self.minimization_steps = config.minimization_steps
         self.use_lca = config.use_lca
         self.use_jit = config.use_jit
+        self.use_langevin = config.use_langevin
+        self.friction_coef = config.friction_coef
+        self.use_berendsen = config.use_berendsen
+        self.tau = config.tau
 
         # Derive box size and initial lattice
         self.box_size = self.compute_box_size()
         self.positions = self.create_lattice()
         # Initialize velocities randomly and adjust to desired temperature
         self.velocities, self.kinetic_energy = self.initialize_velocities()
-        
+
         # Choose the force computation method for the simulation
         if not self.use_lca and not self.use_jit:
             self.compute_forces = compute_forces_naive
@@ -97,31 +101,31 @@ class Simulation:
 
     def velocity_verlet_step(self):
         """Perform one step of Velocity Verlet integration with Langevin thermostat."""
-         
-        # Compute dissipative & random forces for first velocity update
-        dissipative_force, random_force = langevin_thermostat(self.velocities, self.dt, self.temperature)
+
         # Half-step velocity update
-        self.velocities += 0.5 * self.dt * (self.forces + dissipative_force + random_force)
+        self.velocities += 0.5 * self.dt * self.forces
 
         # Update positions
-        self.positions += self.velocities * self.dt
+        temp_positions = self.positions + self.velocities * self.dt
 
-        # Apply boundary conditions
-        self.positions = self.apply_boundary_conditions(self.positions)
+        # Ensure that particles are still in the box
+        self.positions = self.apply_boundary_conditions(temp_positions) 
 
         # Compute new forces
-        new_forces, self.potential_energy = self.compute_forces(
+        self.forces, self.potential_energy = self.compute_forces(
             self.positions, self.box_size, self.rcutoff,
             self.sigma, self.epsilon, self.use_pbc)
 
-        # Compute dissipative & random forces for second velocity update
-        dissipative_force, random_force = langevin_thermostat(self.velocities, self.dt, self.temperature)
+        # 2nd half-step velocity update
+        self.velocities += 0.5 * self.dt * self.forces
 
-        # Second half-step velocity update
-        self.velocities += 0.5 * self.dt * (new_forces + dissipative_force + random_force)
-
-        # Update forces
-        self.forces = new_forces
+        # Apply thermostat if selected
+        if self.use_langevin:
+            self.velocities = langevin_thermostat(
+                self.velocities, self.dt, self.temperature, self.friction_coef)
+        elif self.use_berendsen:
+            self.velocities = berendsen_thermostat(
+                self.velocities, self.dt, self.temperature, self.tau, self.dimensions, self.n_particles)
 
         # Compute kinetic and total energy
         self.kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
