@@ -78,7 +78,7 @@ class Simulation:
                 # Create the position based on the current dimension
                 position = [(i + 0.5) * spacing for i in indices]
                 # Add slight random noise considering dimensions
-                noise = np.random.uniform(-0.05, 0.05, size=self.dimensions) * spacing
+                noise = np.random.uniform(-0.01, 0.01, size=self.dimensions) * spacing
                 position = np.array(position) + noise
                 positions.append(position)
         return np.array(positions)
@@ -91,19 +91,27 @@ class Simulation:
         
         # Adjust velocities to match the desired system temperature
         kinetic_energy = 0.5 * np.sum(velocities**2) # Kinetic energy with randomly generated velocities
-        if self.dimensions == 3:
-            desired_kinetic_energy = 0.5 * self.n_particles * 3 * self.temperature # In 3D
-        else:
-            desired_kinetic_energy = 0.5 * self.n_particles * 2 * self.temperature # In 2D
-        scaling = np.sqrt(desired_kinetic_energy / kinetic_energy)
-        velocities *= scaling
-        return velocities, desired_kinetic_energy
+        # if self.dimensions == 3:
+        #     desired_kinetic_energy = 0.5 * self.n_particles * 3 * self.temperature # In 3D
+        # else:
+        #     desired_kinetic_energy = 0.5 * self.n_particles * 2 * self.temperature # In 2D
+        # scaling = np.sqrt(desired_kinetic_energy / kinetic_energy)
+        # velocities *= scaling
+        return velocities, kinetic_energy
 
     def velocity_verlet_step(self):
         """Perform one step of Velocity Verlet integration with Langevin thermostat."""
 
         # Half-step velocity update
         self.velocities += 0.5 * self.dt * self.forces
+
+        # Apply thermostat if selected
+        if self.use_langevin:
+            self.velocities = langevin_thermostat(
+                self.velocities, self.dt, self.temperature, self.friction_coef)
+        elif self.use_berendsen:
+            self.velocities = berendsen_thermostat(
+                self.velocities, self.dt, self.temperature, self.tau, self.dimensions, self.n_particles)
 
         # Update positions
         temp_positions = self.positions + self.velocities * self.dt
@@ -119,13 +127,7 @@ class Simulation:
         # 2nd half-step velocity update
         self.velocities += 0.5 * self.dt * self.forces
 
-        # Apply thermostat if selected
-        if self.use_langevin:
-            self.velocities = langevin_thermostat(
-                self.velocities, self.dt, self.temperature, self.friction_coef)
-        elif self.use_berendsen:
-            self.velocities = berendsen_thermostat(
-                self.velocities, self.dt, self.temperature, self.tau, self.dimensions, self.n_particles)
+
 
         # Compute kinetic and total energy
         self.kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
@@ -181,13 +183,13 @@ class Simulation:
             save_xyz(self.positions, self.trajectory_file, step + 1)
 
             # Print some progress
-            if step % 100 == 0:
-                print(
-                    f"Step: {step:10d} | "
-                    f"Total Energy: {total_energy:12.2f} | "
-                    f"Potential Energy: {potential_energy:12.2f} | "
-                    f"Kinetic Energy: {kinetic_energy:12.2f}"
-                )
+            # if step % 100 == 0:
+            #     print(
+            #         f"Step: {step:10d} | "
+            #         f"Total Energy: {total_energy:12.2f} | "
+            #         f"Potential Energy: {potential_energy:12.2f} | "
+            #         f"Kinetic Energy: {kinetic_energy:12.2f}"
+            #     )
         # Print final values
         print(
             f"Step: {self.steps:10d} | "
