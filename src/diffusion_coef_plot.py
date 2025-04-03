@@ -1,5 +1,4 @@
 import numpy as np
-import time as timer
 import matplotlib.pyplot as plt
 
 def compute_diffusion_coefficient(msd, time, dimensions):
@@ -20,13 +19,14 @@ def compute_diffusion_coefficient(msd, time, dimensions):
         return np.nan
 
     # Fit MSD = (2 * d * D) * time + C
-    # We want the slope = 2 * d * D
+    # slope = 2 * d * D
     try:
-        # Fit the linear part, often at later times. Heuristic: use from the one third.
+        # Fit the linear part, start from the one third.
         start_fit_index = len(time) // 3
-        # Ensure we have at least 2 points for the fit
+        # Ensure at least 2 points for the fit
         if start_fit_index >= len(time) - 1:
-            start_fit_index = 0 # Use all data if second half is too small
+            # Use all data
+            start_fit_index = 0 
 
         fit_time = time[start_fit_index:]
         fit_msd = msd[start_fit_index:]
@@ -35,7 +35,8 @@ def compute_diffusion_coefficient(msd, time, dimensions):
              print("Warning: Not enough data points in the selected range for fitting D. Using all data.")
              fit_time = time
              fit_msd = msd
-             if len(fit_time) < 2: # Still not enough
+             # Too little data
+             if len(fit_time) < 2: 
                   print("Error: Cannot perform linear fit with less than 2 points.")
                   return np.nan
 
@@ -54,7 +55,7 @@ def compute_diffusion_coefficient(msd, time, dimensions):
         print(f"Warning: Linear fit for diffusion coefficient failed: {e}")
         return np.nan
 
-def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
+def process_trajectory_for_msd(filename, dt_sim, dt_comp, skip_interval=1, start_frame=0):
     """
     Reads an XYZ file frame by frame, calculates MSD relative to the specified start frame.
 
@@ -62,31 +63,34 @@ def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
         filename (str): Path to the XYZ file.
         dt (float): Timestep duration between frames in the original file.
         skip_interval (int): Interval for skipping frames (e.g., 1 processes every frame, 5 processes every 5th frame).
-        start_frame (int): The frame number (in the *processed* sequence) from which to start the MSD calculation.
+        start_frame (int): The frame number (in the processed sequence) from which to start the MSD calculation.
 
     Returns:
         tuple: (msd_array, time_array, dimensions, processed_frame_count)
                Returns (None, None, None, None) if an error occurs.
     """
     msd_values = []
-    times = []
+    times_sim = []
+    times_comp = []
     first_positions = None
     n_particles = 0
     dimensions = 3
     # Flag to indicate if the start_frame has been found
     first_frame_found = False
-    current_time = 0.0 # Initialize current_time here
-    current_msd = 0.0 # Initialize current_msd here
+    # Initialize current_time here
+    current_time_sim = 0.0 
+    current_time_comp = 0.0
+    # Initialize current_msd here
+    current_msd = 0.0 
 
     try:
         with open(filename, 'r') as f:
             line_num = 0
             frame_count_total = 0
             frame_count_processed = 0
-            start_time = timer.time()
 
             print(f"Processing trajectory file: {filename}")
-            print(f"Timestep (dt): {dt}, Skip Interval: {skip_interval}, Start Frame: {start_frame}")
+            print(f"Simulation Timestep (dt): {dt_sim}, Computer Timestep (dt): {dt_comp}, Skip Interval: {skip_interval}, Start Frame: {start_frame}")
 
             while True:
                 # Read header lines for a frame
@@ -107,7 +111,7 @@ def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
                     return None, None, None, None
                 line_num += 1
 
-                # Read comment line (can be any comment)
+                # Read comment line
                 f.readline()
                 line_num += 1
 
@@ -161,7 +165,8 @@ def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
                              first_positions = first_positions_raw # Store X, Y, Z
                         # Append 0 for MSD at t=0
                         msd_values.append(0.0)
-                        times.append(0.0)
+                        times_sim.append(0.0)
+                        times_comp.append(0.0)
                         first_frame_found = True # Flag to ensure this block is only executed once
                         print(f"Starting MSD calculation from frame {frame_count_processed} (Original frame: {frame_count_total})")
                     else:
@@ -179,15 +184,16 @@ def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
                         current_msd = np.mean(squared_displacement)
 
                         msd_values.append(current_msd)
-                        current_time = (frame_count_processed - start_frame) * dt * skip_interval
-                        times.append(current_time)
+                        current_time_sim = (frame_count_processed - start_frame) * dt_sim * skip_interval
+                        current_time_comp = (frame_count_processed - start_frame) * dt_comp * skip_interval
+                        times_sim.append(current_time_sim)
+                        times_comp.append(current_time_comp)
 
                     frame_count_processed += 1
 
                     # Progress indicator
                     if frame_count_processed % 10000 == 0:
-                         elapsed = timer.time() - start_time
-                         print(f"... Processed frame {frame_count_processed} (Original frame: {frame_count_total}) Time: {current_time:.4f} MSD: {current_msd:.4e} Elapsed: {elapsed:.2f}s")
+                         print(f"... Processed frame {frame_count_processed} Sim Time: {current_time_sim:.4f} Comp Time: {current_time_comp:.4f} MSD: {current_msd:.4e}")
 
                 else:
                     # Skip this frame's coordinate lines
@@ -217,26 +223,25 @@ def process_trajectory_for_msd(filename, dt, skip_interval=1, start_frame=0):
     if n_particles == 0 or first_positions is None:
         print("Error: Could not read any particle data or process any frames.")
         return None, None, None, None
-    if len(times) < 2: # Need at least 2 points after start_frame
-        print("Warning: Less than two frames were processed *after* start_frame. Cannot calculate diffusion coefficient.")
+    if len(times_sim) < 2 or len(times_comp) < 2: # Need at least 2 points after start_frame
+        print("Warning: Less than two frames were processed after start_frame. Cannot calculate diffusion coefficient.")
         # Still return what we have
         pass
 
-    end_time = timer.time()
     print(f"\nFinished processing.")
     print(f"Read {frame_count_total} total frames from the file.")
     print(f"Processed {frame_count_processed} frames after applying skip_interval={skip_interval}.")
-    print(f"Total processing time: {end_time - start_time:.2f} seconds.")
 
-    return np.array(msd_values), np.array(times), dimensions, frame_count_processed
+    return np.array(msd_values), np.array(times_sim), np.array(times_comp), dimensions, frame_count_processed
 
 # ==============================================
 # --- Main Execution ---
 # ==============================================
 
 # Parameters
-input_file = "2D_trajectory.xyz"
-dt = 0.0001
+input_file = "3D_trajectory.xyz"
+dt_sim = 0.0001
+dt_comp = 0.004997
 skip_interval = 1
 # Specify the starting frame here in processed frame count (frames that are in .XYZ)
 start_frame = 1
@@ -245,49 +250,75 @@ print(f"Starting MSD analysis for '{input_file}'...")
 print("-" * 30)
 
 # Process the trajectory
-msd, time, dimensions, num_processed_frames = process_trajectory_for_msd(input_file, dt, skip_interval, start_frame)
+msd, time_sim, time_comp, dimensions, num_processed_frames = process_trajectory_for_msd(input_file, dt_sim, dt_comp, skip_interval, start_frame)
 
 print("-" * 30)
 
 # Analyze results
-if msd is not None and time is not None and num_processed_frames > 0:
-    sim_time_processed = time[-1] if len(time) > 0 else 0.0
+if msd is not None and time_sim is not None and time_comp is not None and num_processed_frames > 0:
+    sim_time_processed = time_sim[-1] if len(time_sim) > 0 else 0.0
+    comp_time_processed = time_comp[-1] if len(time_comp) > 0 else 0.0
 
     print("\n--- Analysis Results ---")
     print(f"System Dimensions: {dimensions}D")
-    print(f"Number of processed frames (after start frame): {num_processed_frames}")
-    print(f"Total time covered by processed frames (after start frame): {sim_time_processed:.5f} (simulation time units)")
+    print(f"Number of processed frames: {num_processed_frames}")
+    print(f"Total simulation time: {sim_time_processed:.5f} (simulation time units)")
+    print(f"Total computer time: {comp_time_processed:.5f} (s)")
 
     # Calculate Diffusion Coefficient
-    D = compute_diffusion_coefficient(msd, time, dimensions)
+    D_sim = compute_diffusion_coefficient(msd, time_sim, dimensions)
+    D_comp = compute_diffusion_coefficient(msd, time_comp, dimensions)
 
-    if not np.isnan(D):
-        print(f"Estimated Diffusion Coefficient (D): {D:.5e}")
+    if not np.isnan(D_sim) and not np.isnan(D_comp):
+        print(f"Estimated Diffusion Coefficient (D) with Simulation Time: {D_sim:.5e}")
+        print(f"Estimated Diffusion Coefficient (D) with Computer Time: {D_comp:.5e}")
     else:
         print("Diffusion Coefficient could not be reliably estimated.")
 
     # Plotting
     try:
-        plt.figure(figsize=(8, 6))
-        plt.plot(time, msd, '-', markersize=4, linewidth=1.5, label=f'MSD (from frame {start_frame})')
-        plt.xlabel(f"Time (Simulation Units, from frame {start_frame})")
-        plt.ylabel("Mean Squared Displacement (MSD)")
-        plt.title(f"MSD vs. Time for {input_file}\n(dt={dt}, skip={skip_interval}, Start Frame={start_frame})")
+        # Create a figure with 2 subplots
+        fig, axes = plt.subplots(2, 1, figsize=(8, 10), sharex=False)
 
-        # Linear fit
-        if not np.isnan(D) and len(time) > 1:
-            start_fit_index = len(time) // 3
-            if start_fit_index >= len(time) - 1: start_fit_index = 0
-            fit_time = time[start_fit_index:]
-            if len(fit_time) >= 2:
-                slope = 2 * dimensions * D
-                intercept = np.mean(msd[start_fit_index:]) - slope * np.mean(fit_time)
-                plt.plot(fit_time, slope * fit_time + intercept, '--', color='red', linewidth=2, label=f'Linear Fit (D={D:.2e})')
+        # First Plot: MSD vs. Simulation Time
+        axes[0].plot(time_sim, msd, '-', linewidth=1.0, color="red", label=f'MSD (Sim. Time)')
+        axes[0].set_xlabel(f"Time (Simulation Units)")
+        axes[0].set_ylabel("Mean Squared Displacement (MSD)")
+        axes[0].set_title("MSD vs. Simulation Time")
+        axes[0].grid(True, linestyle='--', alpha=0.6)
 
-        plt.legend()
-        plt.grid(True, linestyle='--', alpha=0.6)
+        # Linear Fit for Simulation Time
+        if not np.isnan(D_sim) and len(time_sim) > 1:
+            start_fit_index = len(time_sim) // 3
+            fit_time_sim = time_sim[start_fit_index:]
+            if len(fit_time_sim) >= 2:
+                slope_sim = 2 * dimensions * D_sim
+                intercept_sim = np.mean(msd[start_fit_index:]) - slope_sim * np.mean(fit_time_sim)
+                axes[0].plot(fit_time_sim, slope_sim * fit_time_sim + intercept_sim, '--', color='black', linewidth=2, label=f'Linear Fit (D={D_sim:.2e})')
+
+        axes[0].legend()
+
+        # Second Plot: MSD vs. Computer Time
+        axes[1].plot(time_comp, msd, '-', linewidth=1.0, color="blue", label=f'MSD (Comp. Time)')
+        axes[1].set_xlabel(f"Time (seconds)")
+        axes[1].set_ylabel("Mean Squared Displacement (MSD)")
+        axes[1].set_title("MSD vs. Computer Time")
+        axes[1].grid(True, linestyle='--', alpha=0.6)
+
+        # Linear Fit for Computer Time
+        if not np.isnan(D_comp) and len(time_comp) > 1:
+            start_fit_index = len(time_comp) // 3
+            fit_time_comp = time_comp[start_fit_index:]
+            if len(fit_time_comp) >= 2:
+                slope_comp = 2 * dimensions * D_comp
+                intercept_comp = np.mean(msd[start_fit_index:]) - slope_comp * np.mean(fit_time_comp)
+                axes[1].plot(fit_time_comp, slope_comp * fit_time_comp + intercept_comp, '--', color='black', linewidth=2, label=f'Linear Fit (D={D_comp:.2e})')
+
+        axes[1].legend()
+
+        # Adjust layout and save
         plt.tight_layout()
-        plot_filename = f"msd_plot_{input_file}.png"
+        plot_filename = f"msd_subplots_{input_file}.png"
         plt.savefig(plot_filename)
         print(f"MSD plot saved to {plot_filename}")
 
