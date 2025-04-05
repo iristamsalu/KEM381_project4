@@ -78,11 +78,17 @@ def track_comp_time(start_time, end_time, steps, config, output_file="computatio
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Ensure the output directory exists
-    output_dir = os.path.join("output")  # Set default directory to "output"
+    output_dir = os.path.join("output")
     os.makedirs(output_dir, exist_ok=True)
 
     # Build the full output path
     output_path = os.path.join(output_dir, output_file)
+
+    # Thermostat details
+    if config.use_langevin == True or config.use_berendsen == True:
+        thermostat_parameter = config.thermostat_constant
+    else:
+        thermostat_parameter = False
 
     # Append to the file
     with open(output_path, "a") as f:
@@ -92,7 +98,9 @@ def track_comp_time(start_time, end_time, steps, config, output_file="computatio
                 f"N: {config.n_particles}, density: {config.density}, steps: {config.steps}, " 
                 f"dt: {config.dt}, PBC: {config.use_pbc}, LCA: {config.use_lca}, JIT: {config.use_jit}, "
                 f"rcut: {config.rcutoff}, sigma: {config.sigma}, "
-                f"eps: {config.epsilon}, temp: {config.temperature}\n")
+                f"eps: {config.epsilon}, temp: {config.temperature}, "
+                f"langevin: {config.use_langevin}, berendsen: {config.use_berendsen}, "
+                f"thermostatu_parameter: {thermostat_parameter}\n")
 
     # Print a summary of the computational time
     print(f"\nTotal time: {total_simulation_time:.6f} s\nAverage time per step: {avg_time_per_step:.6f} s\n")
