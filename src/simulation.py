@@ -28,9 +28,8 @@ class Simulation:
         self.use_lca = config.use_lca
         self.use_jit = config.use_jit
         self.use_langevin = config.use_langevin
-        self.friction_coef = config.friction_coef
         self.use_berendsen = config.use_berendsen
-        self.tau = config.tau
+        self.thermostat_constant = config.thermostat_constant
 
         # Derive box size and initial lattice
         self.box_size = self.compute_box_size()
@@ -91,12 +90,12 @@ class Simulation:
         
         # Adjust velocities to match the desired system temperature
         kinetic_energy = 0.5 * np.sum(velocities**2) # Kinetic energy with randomly generated velocities
-        # if self.dimensions == 3:
-        #     desired_kinetic_energy = 0.5 * self.n_particles * 3 * self.temperature # In 3D
-        # else:
-        #     desired_kinetic_energy = 0.5 * self.n_particles * 2 * self.temperature # In 2D
-        # scaling = np.sqrt(desired_kinetic_energy / kinetic_energy)
-        # velocities *= scaling
+        if self.dimensions == 3:
+            desired_kinetic_energy = 0.5 * self.n_particles * 3 * self.temperature # In 3D
+        else:
+            desired_kinetic_energy = 0.5 * self.n_particles * 2 * self.temperature # In 2D
+        scaling = np.sqrt(desired_kinetic_energy / kinetic_energy)
+        velocities *= scaling
         return velocities, kinetic_energy
 
     def velocity_verlet_step(self):
@@ -108,10 +107,10 @@ class Simulation:
         # Apply thermostat if selected
         if self.use_langevin:
             self.velocities = langevin_thermostat(
-                self.velocities, self.dt, self.temperature, self.friction_coef)
+                self.velocities, self.dt, self.temperature, self.thermostat_constant)
         elif self.use_berendsen:
             self.velocities = berendsen_thermostat(
-                self.velocities, self.dt, self.temperature, self.tau, self.dimensions, self.n_particles)
+                self.velocities, self.dt, self.temperature, self.thermostat_constant, self.dimensions, self.n_particles)
 
         # Update positions
         temp_positions = self.positions + self.velocities * self.dt
@@ -183,13 +182,13 @@ class Simulation:
             save_xyz(self.positions, self.trajectory_file, step + 1)
 
             # Print some progress
-            # if step % 100 == 0:
-            #     print(
-            #         f"Step: {step:10d} | "
-            #         f"Total Energy: {total_energy:12.2f} | "
-            #         f"Potential Energy: {potential_energy:12.2f} | "
-            #         f"Kinetic Energy: {kinetic_energy:12.2f}"
-            #     )
+            if step % 100 == 0:
+                print(
+                    f"Step: {step:10d} | "
+                    f"Total Energy: {total_energy:12.2f} | "
+                    f"Potential Energy: {potential_energy:12.2f} | "
+                    f"Kinetic Energy: {kinetic_energy:12.2f}"
+                )
         # Print final values
         print(
             f"Step: {self.steps:10d} | "

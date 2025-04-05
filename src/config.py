@@ -21,9 +21,8 @@ class Configuration:
     use_lca: bool
     use_jit: bool
     use_langevin: bool
-    friction_coef: float
     use_berendsen: bool
-    tau: float
+    thermostat_constant: float
 
 def validate_positive(value, name):
     """Check if a value is positive."""
@@ -48,7 +47,7 @@ def parse_args():
     parser.add_argument("--density", type=float, default=0.8, help="Density of particles")
     parser.add_argument("--n_particles", type=int, default=1000, help="Number of particles")
     parser.add_argument("--use_pbc", action="store_true", help="Use periodic boundary conditions (PBC)")
-    parser.add_argument("--temperature", type=float, default=298.0, help="Desired temperature (K)")
+    parser.add_argument("--temperature", type=float, default=0.5, help="Desired temperature in reduced units")
     parser.add_argument("--sigma", type=float, default=1.0, help="Lennard-Jones sigma parameter")
     parser.add_argument("--epsilon", type=float, default=1.0, help="Lennard-Jones epsilon parameter")
     parser.add_argument("--rcutoff", type=float, default=2.5, help="Lennard-Jones cutoff radius")
@@ -58,9 +57,8 @@ def parse_args():
     parser.add_argument("--use_lca", action="store_true", help="Use Linked Cell Algorithm (LCA)")
     parser.add_argument("--use_jit", action="store_true", help="Use Just-In-Time (JIT) optimization")
     parser.add_argument("--use_langevin", action="store_true", help="Use Langevin thermostat")
-    parser.add_argument("--friction_coef", type=float, default=1, help="Friction coefficient for Langevin thermostat")
     parser.add_argument("--use_berendsen", action="store_true", help="Use Berendsen thermostat")
-    parser.add_argument("--tau", type=float, default=1, help="Tau for Berendsen thermostat.")
+    parser.add_argument("--thermostat_constant", type=float, default=1, help="Thermostat constant (Langevin -> friction coef, Berendsen -> tau)")
 
     args = parser.parse_args()
 
@@ -74,8 +72,7 @@ def parse_args():
     validate_positive(args.epsilon, "Epsilon")
     validate_positive(args.rcutoff, "Cutoff radius")
     validate_positive(args.minimization_steps, "Number of minimization steps")
-    validate_positive(args.friction_coef, "Langevin friction coefficent")
-    validate_positive(args.tau, "Berendsen thermostat constant tau")
+    validate_positive(args.thermostat_constant, "Thermostat constant")
     validate_dimension(args.dimensions)
 
     # Check for rcutoff and sigma consistency
@@ -103,7 +100,6 @@ def parse_args():
         args.use_lca,
         args.use_jit,
         args.use_langevin,
-        args.friction_coef,
         args.use_berendsen,
-        args.tau
+        args.thermostat_constant
     )
