@@ -69,7 +69,7 @@ def save_energy_data(all_time_steps, all_kinetic_energies, all_potential_energie
         for t, ke, pe, te in zip(all_time_steps, all_kinetic_energies, all_potential_energies, all_total_energies):
             f.write(f"{t:.6f}\t{ke:.6f}\t{pe:.6f}\t{te:.6f}\n")
 
-def track_comp_time(start_time, end_time, steps, config, output_file="computational_times.dat"):
+def track_comp_time(start_time, end_time, steps, config, output_file="run_history.dat"):
     """Track computational time and append to output file in the specified output directory."""
     total_simulation_time = end_time - start_time
     avg_time_per_step = total_simulation_time / steps
