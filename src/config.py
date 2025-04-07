@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=5000, help="Number of simulation steps")
     parser.add_argument("--dt", type=float, default=0.0001, help="Timestep")
     parser.add_argument("--density", type=float, default=0.8, help="Density of particles")
-    parser.add_argument("--n_particles", type=int, default=1000, help="Number of particles")
+    parser.add_argument("--n_particles", type=int, default=100, help="Number of particles")
     parser.add_argument("--use_pbc", action="store_true", help="Use periodic boundary conditions (PBC)")
     parser.add_argument("--temperature", type=float, default=0.5, help="Desired temperature in reduced units")
     parser.add_argument("--sigma", type=float, default=1.0, help="Lennard-Jones sigma parameter")
