@@ -8,18 +8,19 @@ This is a simple Lennard-Jones MD model in 2D and 3D. It is implemented as a mol
 
 2. **Energy Minimization** involves finding the configuration of particles that minimizes the potential energy of the system by optimizing particle positions.
 
+In addition to MD, we also developed a Monte Carlo (MC) simulation. In the program various analyses are performed alongside the MC run, including Mean Squared Displacement (MSD), RDF, final particle configurations, energy profiles, autocorrelation analysis, and displacement histograms.
 
 ### Files
 - **main.py**: Main execution script that parses arguments, initializes the simulation, chooses between algorithms, and runs either energy minimization or full Lennard-Jones simulation.
-- **simulation.py**: Core of the simulation logic. Handles initialization, Velocity Verlet integration, energy minimization, boundary conditions, force calculations, lattice setup, and velocity initialization.
-Provides simulate_LJ() for full dynamics and minimize_energy() for energy minimization.
+- **simulation.py**: Core of the simulation logic. Handles initialization, Velocity Verlet integration, energy minimization, boundary conditions, force calculations, lattice setup, and velocity initialization. Provides simulate_LJ() for full dynamics and minimize_energy() for energy minimization.
 - **thermostats.py**: Contains two thermostat functions: Langevin and Berendsen.
-- **forces.py**: Implements Lennard-Jones force and potential calculations using both the naive pairwise method and the optimized LCA for efficient neighbor searching.
+- **forces.py**: Implements Lennard-Jones force and potential calculations using both the basic pairwise method and the optimized LCA for efficient neighbor searching.
 - **forces_jit.py**: Has same functions as forces.py but uses just-in-time compilation.
 - **config.py**: Parses and validates command-line arguments, and stores simulation parameters in a structured Configuration dataclass.
 - **output_and_plots.py**: Handles visualization and trajectory saving.
 - **RDF.py**: Computes and plots RDF
-- **diffusion_coeffcient.py**: Computes diffusion coeffcient from positions MSD vs. simulation time and MSD vs. computer time plots.
+- **diffusion_coeffcient.py**: Computes diffusion coefficient from positions MSD vs. simulation time and MSD vs. computer time plots.
+- **monte_carlo.py**: Monte Carlo simulation with various plots, including MSD, RDF, final positions, energy, correlation analysis and displacement histogram.
 - **requirements.txt**: A list of packages and libraries needed to run the programs.
 
 
@@ -44,12 +45,12 @@ To run the MD simulation program, you need to provide certain parameters through
 - `--minimize`: (Optional) Flag to run **energy minimization** from random particle positions. If omitted, the regular **Lennard-Jones simulation** will be run by default (default: False)
 - `--minimize_only`: (Optional) Flag to run **energy minimization** from initial lattice. If omitted, the regular **Lennard-Jones simulation** will be run by default (default: False)
 - `--minimization_steps`: (Optional) Give only when running with `--minimize` or `--minimize_only` (default: 10000)
-- `--use_lca`: (Optional) Flag to run the LJ simulation or minimization using the **linked cell algorithm**. If omitted, the regular naive algorithm will be used by default (default: False)
+- `--use_lca`: (Optional) Flag to run the LJ simulation or minimization using the **linked cell algorithm**. If omitted, the basic pairwise method will be used by default (default: False)
 - `--use_jit`: (Optional) Flag to run the LJ simulation or minimization using the **just-in-time compilation (JIT)** (default: False)
 - `--temperature <temperature>`: (Optional) The temperature in reduced units (default: 0.5)
 - `--use_langevin`: (Optional) Flag to use **Langevin thermostat** (default: False)
 - `--use_berendsen`: (Optional) Flag to use **Berendsen thermostat** (default: False)
-- `--thermostat_constant`: (Optional) Specify thermostat parameter, for Langevin zeeta or for Berendsen tau. (default: 1)
+- `--thermostat_constant`: (Optional) Specify thermostat parameter; for Langevin: friction coefficient zeta; for Berendsen: relaxation time tau (default: 1)
 
 #### Example Commands:
 - **Example 1: NVE With Periodic Boundary Conditions (PBC)**:
@@ -78,7 +79,7 @@ To run the MD simulation program, you need to provide certain parameters through
 
 - **Example 4: Run MD simulation with Langevin thermostat and PBC**:
     ```
-    python3 main.py --dimensions <2 or 3> --steps <number_of_steps_before_minimization> --dt <time_step> --density <density> --n_particles <number_of_particles> --use_pbc --use_langevin --temperature <desired temperature> --thermostat_constant <langevin zeeta> --use_lca --use_jit
+    python3 main.py --dimensions <2 or 3> --steps <number_of_steps_before_minimization> --dt <time_step> --density <density> --n_particles <number_of_particles> --use_pbc --use_langevin --temperature <desired temperature> --thermostat_constant <langevin zeta> --use_lca --use_jit
 
     python3 main.py --dimensions 3 --steps 10000 --dt 0.01 --density 0.8 --n_particles 100 --use_pbc --use_langevin --temperature 0.5 --thermostat_constant 1 --use_lca --use_jit
 
@@ -101,7 +102,7 @@ To run the MD simulation program, you need to provide certain parameters through
 ---
 
 ### Running RDF.py
-To calculate RDF you need to have a .XYZ file of a trajectory.
+To calculate RDF you need to have a `.XYZ` file of a trajectory.
 
 #### Explanation of Arguments:
 
@@ -114,7 +115,7 @@ To calculate RDF you need to have a .XYZ file of a trajectory.
 #### Example Commands:
 - **Example 1: Compute RDF for a simulation trajectory in ./output/2D_trajectory.xyz**:
     ```
-    python3 RDF.py <path to the XYZ file> --density <density> --dim <2D or 3D> --start <starting frame nr> --bins <nr of histogram bins>
+    python3 RDF.py <path to the XYZ file> --density <density> --dim <2 or 3> --start <starting frame nr> --bins <nr of histogram bins>
 
     python3 RDF.py ./output/2D_trajectory.xyz --density 0.5 --dim 2 --start 5000 --bins 50
 
@@ -142,20 +143,55 @@ To compute diffusion coeffcient by plotting MSD vs. simulation time and MSD vs. 
 #### Example Commands:
 - **Example 1: Compute diffusion coefficient for a simulation trajectory in ./output/2D_trajectory.xyz**:
     ```
-    python3 diffusion_coef.py <path to the XYZ file> --density <density> --dim <2D or 3D> --start <starting frame nr> --bins <nr of histogram bins>
+    python3 diffusion_coef.py <path to the XYZ file> --density <density> --dim <2 or 3> --start <starting frame nr> --bins <nr of histogram bins>
 
     python3 diffusion_coef.py ./output/2D_trajectory.xyz --dt_sim 0.01 --dt_comp 0.0256 --box_size 20 --dim 2
 
     ```
 
 #### Output from diffusion_coef.py:
-1. Program creates a msd_plot_{filename}.png file in the output folder.
+1. Program creates a `msd_plot_{filename}.png` file in the output folder.
+
+
+---
+### Running MC simulation monte_carlo.py
+
+#### Explanation of Arguments:
+
+- `--dimension <2 or 3>`: Run in 2D or 3D (default: 2)
+- `--particles <number of particles>`: Number of particles (default: 500)
+- `--density <number density>`: Number density (default: 0.94)
+- `--temperature <temperature in reduced units>`: Give temperature value in reduced units (default: 1.52)
+- `--steps <nr of steps>`: Give the nr of simulation steps (default: 1000000)
+- `--max_displacement <max displacement>`: Give the maximum displacement value (default: 0.08)
+- `--cutoff <cutoff>`: Cutoff in the units of sigma (default: 2.5)
+- `--seed <random seed>`: A random seed for reproducibility (default: 16)
+- `--sigma <sigma>`: Lennard-Jones sigma (default: 1.0)
+- `--epsilon <epsilon>`: Lennard-Jones epsilon (default: 1.0)
+
+#### Example Command:
+- **Example:
+    ```
+    python3 monte_carlo.py --dimension <2 or 3> --particles <nr of particles> --density <number density> --temperature <reduced temperature> --steps <nr of steps> 
+
+    python3 monte_carlo.py --dimension 2 --particles 100 --density 0.5 --temperature 1.5 --steps 100000 
+
+    ```
+
+#### Generated files in the output folder:
+All the MC files have _MC tag in the file name to distinguish them from MD files.
+1. `correlation_analysis_MC.png`
+2. `displacement_hist_MC.png`
+3. `energy_evolution_MC.png`
+4. `final_positions_2d_MC.png`
+5. `msd_MC.png`
+6. `rdf_MC.png`
 
 
 ---
 
 ### Notes:
-The `videos/` folder contains OVITO visuals (.mp4 files) for different phases: gas.mp4, liquid.mp4, hexatic.mp4 and solid.mp4.
+The `videos/` folder contains OVITO visuals (`.mp4` files) for different phases: `gas.mp4`, `liquid.mp4`, `hexatic.mp4` and `solid.mp4`.
 
 ---
 

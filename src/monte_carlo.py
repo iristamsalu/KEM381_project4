@@ -2,22 +2,59 @@ from numba import jit, prange
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import argparse
+import os
 
-# Simulation parameters
-N = 50  # Number of particles
-rho = 0.94  # Number density
-dim = 2  # Dimensionality
-L = (N / rho) ** (1 / dim)  # Box length
-T = 1.52  # Reduced temperature
-sigma = 1.0  # Lennard-Jones sigma
-epsilon = 1.0  # Lennard-Jones epsilon
-cutoff = 2.5 * sigma  # Cutoff distance for LJ potential
-n_steps = 100000  # Number of Monte Carlo steps
-max_disp = 0.08  # Maximum displacement
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Monte Carlo simulation of Lennard-Jones particles')
+    parser.add_argument('--dimension', '-d', type=int, default=2, choices=[2, 3],
+                        help='System dimensionality (2 or 3)')
+    parser.add_argument('--particles', '-n', type=int, default=500,
+                        help='Number of particles')
+    parser.add_argument('--density', '-rho', type=float, default=0.94,
+                        help='Number density')
+    parser.add_argument('--temperature', '-t', type=float, default=1.52,
+                        help='Reduced temperature')
+    parser.add_argument('--steps', '-s', type=int, default=1000000,
+                        help='Number of Monte Carlo steps')
+    parser.add_argument('--max_displacement', '-md', type=float, default=0.08,
+                        help='Maximum displacement')
+    parser.add_argument('--cutoff', '-c', type=float, default=2.5,
+                        help='Cutoff distance in units of sigma')
+    parser.add_argument('--seed', '-seed', type=int, default=16,
+                        help='Random seed for reproducibility')
+    parser.add_argument('--sigma', '-sig', type=float, default=1.0,
+                        help='Lennard-Jones sigma')
+    parser.add_argument('--epsilon', '-eps', type=float, default=1.0,
+                        help='Lennard-Jones epsilon')
+
+
+    return parser.parse_args()
+
+
+# Replace the parameter definitions with:
+args = parse_arguments()
+N = args.particles
+rho = args.density
+dim = args.dimension
+T = args.temperature
+sigma = args.sigma
+epsilon = args.epsilon
+cutoff = args.cutoff * sigma # Lennard-Jones cutoff in units of sigma
+n_steps = args.steps
+max_disp = args.max_displacement
+
+# Define output directory and create it if it doesn't exist
+output_dir = "output"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+    print(f"Created output directory: {output_dir}")
+
+# Box length
+L = (N / rho) ** (1 / dim)
 
 # Set random seed for reproducibility
-np.random.seed(16)
-
+np.random.seed(args.seed)
 
 # Initialize positions array
 positions = np.zeros((N, dim))
@@ -105,7 +142,6 @@ def compute_msd(positions_history, N, L, dim):
     return msd
 
 
-
 # Track energy and displacement statistics
 @jit(nopython=True)
 def run_simulation(positions, N, L, T, cutoff, sigma, epsilon, n_steps, max_disp, dim):
@@ -166,9 +202,7 @@ plt.xlabel("MC Steps")
 plt.ylabel("Mean Square Displacement")
 plt.legend()
 plt.title("Mean Square Displacement")
-plt.savefig("msd.png")
-plt.show()
-
+plt.savefig(os.path.join(output_dir, "msd_MC.png"))
 
 
 
@@ -217,9 +251,7 @@ def compute_integrated_correlation_time(acf):
 
 # Usage:
 print("Computing autocorrelation...")
-#max_lag = min(n_steps // 20, 10000)  # Use 5% of steps, max 10000
-max_lag = 10000
-#equilibration_steps = n_steps - 1000  #
+max_lag = min(n_steps // 10, 10000)  # Limit max_lag to 10% of n_steps or 10000
 auto_corr = autocorrelation(energies, max_lag)
 
 tau_int, window_size = compute_integrated_correlation_time(auto_corr)
@@ -249,9 +281,7 @@ plt.title(f"Integrated Correlation Time\nτ_int = {tau_int[window_size-1]:.1f}")
 plt.legend()
 
 plt.tight_layout()
-plt.savefig("correlation_analysis.png")
-plt.show()
-
+plt.savefig(os.path.join(output_dir, "correlation_analysis_MC.png"))
 
 
 # Plot energy evolution
@@ -261,9 +291,7 @@ plt.xlabel("MC Steps")
 plt.ylabel("Energy")
 plt.legend()
 plt.title("Energy Evolution")
-plt.savefig("energy_evolution.png")
-plt.show()
-
+plt.savefig(os.path.join(output_dir, "energy_evolution_MC.png"))
 
 
 @jit(nopython=True, parallel=True)
@@ -295,7 +323,10 @@ def compute_rdf_parallel(positions_snapshots, N, L, cutoff, dim, bins=100):
                     if bin_idx < bins:
                         hist[bin_idx] += 2  # Count each pair twice
 
-        rdf_accum += hist / norm
+        # Avoid division by zero if norm is zero for some bins
+        safe_norm = np.where(norm == 0, 1, norm) # Replace 0 with 1 in norm array where it's 0
+        rdf_accum += hist / safe_norm
+
 
     rdf_avg = rdf_accum / n_snapshots
     return bin_centers, rdf_avg
@@ -304,15 +335,16 @@ def compute_rdf_parallel(positions_snapshots, N, L, cutoff, dim, bins=100):
 
 print("Computing radial distribution function...")
 rdf_cutoff = min(L/2, 7.0)
-r_vals, rdf_vals = compute_rdf_parallel(positions_history[800000:], N, L, rdf_cutoff, dim)
+# take the last 20% of the snapshots for RDF calculation
+positions_history_rdf = positions_history[int(n_steps * 0.8):]
+r_vals, rdf_vals = compute_rdf_parallel(positions_history_rdf, N, L, rdf_cutoff, dim)
 plt.figure()
 plt.plot(r_vals, rdf_vals, label='Radial Distribution Function')
 plt.xlabel("r")
 plt.ylabel("g(r)")
 plt.legend()
 plt.title("Radial Distribution Function (RDF)")
-plt.savefig("rdf.png")
-plt.show()
+plt.savefig(os.path.join(output_dir, "rdf_MC.png"))
 
 # Plot histogram of displacements
 plt.figure()
@@ -320,11 +352,10 @@ plt.hist(displacements[displacements > 0], bins=70, alpha=0.7, color='g')
 plt.xlabel("Displacement Distance")
 plt.ylabel("Frequency")
 plt.title("Histogram of Accepted Particle Displacements")
-plt.savefig("displacement_hist.png")
-plt.show()
+plt.savefig(os.path.join(output_dir, "displacement_hist_MC.png"))
 
 # Plot final positions
-def plot_final_positions(positions, L, dim):
+def plot_final_positions(positions, L, dim, output_dir):
     if dim == 2:
         plt.figure(figsize=(6, 6))
         plt.scatter(positions[:, 0], positions[:, 1], s=30, alpha=0.7)
@@ -344,9 +375,10 @@ def plot_final_positions(positions, L, dim):
         ax.set_xlabel("x")
         ax.set_ylabel("y")
         ax.set_zlabel("z")
-    plt.savefig(f"final_positions_{dim}d.png")
-    plt.show()
+    plt.savefig(os.path.join(output_dir, f"final_positions_{dim}d_MC.png"))
 
 
-plot_final_positions(positions, L, dim)
+plot_final_positions(positions, L, dim, output_dir)
 
+
+print(f"All plots saved to the '{output_dir}' directory with the '_MC' tag.")
