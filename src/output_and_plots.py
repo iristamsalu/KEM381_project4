@@ -100,7 +100,7 @@ def track_comp_time(start_time, end_time, steps, config, output_file="run_histor
                 f"rcut: {config.rcutoff}, sigma: {config.sigma}, "
                 f"eps: {config.epsilon}, temp: {config.temperature}, "
                 f"langevin: {config.use_langevin}, berendsen: {config.use_berendsen}, "
-                f"thermostatu_parameter: {thermostat_parameter}\n")
+                f"thermostat_parameter: {thermostat_parameter}\n")
 
     # Print a summary of the computational time
     print(f"\nTotal time: {total_simulation_time:.6f} s\nAverage time per step: {avg_time_per_step:.6f} s\n")
