@@ -199,7 +199,6 @@ def main(filename, density, start_frame, bins, dim, output_dir="output"):
     plt.xlim(0, cutoff)
     # Keep bottom at 0
     plt.ylim(bottom=0) 
-    plt.legend()
     plt.tight_layout()
 
     os.makedirs(output_dir, exist_ok=True)
