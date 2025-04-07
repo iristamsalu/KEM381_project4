@@ -2,13 +2,13 @@
 ## Project Assignment 4
 
 ### Overview
-This is a simple Lennard-Jones MD model in 2D and 3D. It is implemented as a molecular dynamics simulation where you can use different boundary conditions, computational algorithms, Langevin and Berendsen thermostats and change system parameters. Also, computational time, energies and trajectory are tracked during the simulation. Additionally, it has two separate programs that calculate radial distribution function (RDF) and diffusion coefficient. The project offers two main functionalities:
+This is a simple Lennard-Jones MD model in 2D and 3D. It is implemented as a molecular dynamics simulation where you can use different boundary conditions, computational algorithms, Langevin and Berendsen thermostats, and change system parameters. Also, computational time, energies, and trajectory are tracked during the simulation. Additionally, it has two separate programs that calculate the radial distribution function (RDF) and diffusion coefficient. The project offers two main functionalities:
 
 1. It simulates particles under the influence of the **Lennard-Jones Potential** using **Velocity Verlet** algorithm.
 
-2. **Energy Minimization** involves finding the configuration of particles that minimizes the potential energy of the system by optimizing particle positions.
+2. **Energy Minimization** involves finding the configuration of particles that minimize the potential energy of the system by optimizing particle positions.
 
-In addition to MD, we also developed a Monte Carlo (MC) simulation. In the program various analyses are performed alongside the MC run, including Mean Squared Displacement (MSD), RDF, final particle configurations, energy profiles, autocorrelation analysis, and displacement histograms.
+In addition to MD, we also developed a Monte Carlo (MC) simulation. In the program, various analyses are performed alongside the MC run, including Mean Squared Displacement (MSD), RDF, final particle configurations, energy profiles, autocorrelation analysis, and displacement histograms.
 
 ### Files
 - **main.py**: Main execution script that parses arguments, initializes the simulation, chooses between algorithms, and runs either energy minimization or full Lennard-Jones simulation.
@@ -16,11 +16,11 @@ In addition to MD, we also developed a Monte Carlo (MC) simulation. In the progr
 - **thermostats.py**: Contains two thermostat functions: Langevin and Berendsen.
 - **forces.py**: Implements Lennard-Jones force and potential calculations using both the basic pairwise method and the optimized LCA for efficient neighbor searching.
 - **forces_jit.py**: Has same functions as forces.py but uses just-in-time compilation.
-- **config.py**: Parses and validates command-line arguments, and stores simulation parameters in a structured Configuration dataclass.
+- **config.py**: Parses and validates command-line arguments and stores simulation parameters in a structured Configuration data class.
 - **output_and_plots.py**: Handles visualization and trajectory saving.
 - **RDF.py**: Computes and plots RDF
 - **diffusion_coeffcient.py**: Computes diffusion coefficient from positions MSD vs. simulation time and MSD vs. computer time plots.
-- **monte_carlo.py**: Monte Carlo simulation with various plots, including MSD, RDF, final positions, energy, correlation analysis and displacement histogram.
+- **monte_carlo.py**: Monte Carlo simulation with various plots, including MSD, RDF, final positions, energy, correlation analysis, and displacement histogram.
 - **requirements.txt**: A list of packages and libraries needed to run the programs.
 
 
@@ -94,22 +94,22 @@ To run the MD simulation program, you need to provide certain parameters through
     ```
 
 #### MD simulation output:
-1. Program creates output folder and several output files.
-2. Trajectory is saved to an `.xyz` file which can be visualized using tools like VMD or Ovito.
-3. The energy evaluation plot is saved as `energy_plot.png`. Detailed energy values during the simulation are stored in `energy_data.dat`.
-4. Run history including run parameters and computational times is saved to `run_history.dat`.
+1. The program creates an `/output` folder and several output files.
+2. Trajectory is saved to a `.xyz` file, which can be visualized using tools like VMD or Ovito.
+3. The energy evaluation plot is saved as `energy_plot.png.` Detailed energy values during the simulation are stored in `energy_data.dat.`
+4. Run history, including run parameters and computational times, is saved to `run_history.dat.`
 
 ---
 
 ### Running RDF.py
-To calculate RDF you need to have a `.XYZ` file of a trajectory.
+To calculate RDF, you need to have a `.XYZ` file of a trajectory.
 
 #### Explanation of Arguments:
 
 - `<filename>`: (required) XYZ file that you want to use or path to the input XYZ file
 - `--density <density>`: (required) The particle density in the system
 - `--dim <2 or 3>`: (required) Is the XYZ in 2D or 3D
-- `--start <starting frame for RDF calculations>`: (optional) Give a starting frame if you want to skip some of the inital frames (default: 0)
+- `--start <starting frame for RDF calculations>`: (optional) Give a starting frame if you want to skip some of the initial frames (default: 0)
 - `--bins <nr of histogram bins>`: (optional) Number of RDF histogram bins for resolution (default: 100)
 
 #### Example Commands:
@@ -123,12 +123,12 @@ To calculate RDF you need to have a `.XYZ` file of a trajectory.
 
 
 #### RDF.py output:
-1. Program creates a rdf_plot.png file in the output folder.
+1. The program creates a `rdf_plot.png` file in the output folder.
 
 ---
 
 ### Running diffusion_coef.py
-To compute diffusion coeffcient by plotting MSD vs. simulation time and MSD vs. computer time.
+To compute the diffusion coefficient by plotting MSD vs. simulation time and MSD vs. computer time.
 
 #### Explanation of Arguments:
 
@@ -137,7 +137,7 @@ To compute diffusion coeffcient by plotting MSD vs. simulation time and MSD vs. 
 - `--dt_comp <timestep length in seconds>`: (required) Computer timestep length in seconds, you can find it from run_history.dat
 - `--box_size <length of a box>`: (required) Give box side length, in 2D (nr_of_particles / density) ** (1 / 2), in 3D (nr_of_particles / density) ** (1 / 3)
 - `--dim <2 or 3>`: (required) Is the XYZ in 2D or 3D
-- `--start <starting frame>`: (optional) Give a starting frame if you want to skip some of the inital frames (default: 0)
+- `--start <starting frame>`: (optional) Give a starting frame if you want to skip some of the initial frames (default: 0)
 - `--skip <skip interval>`: (optional) Use it to skip some frames (default: 1), which means all the frames are used
 
 #### Example Commands:
@@ -178,7 +178,7 @@ To compute diffusion coeffcient by plotting MSD vs. simulation time and MSD vs. 
 
     ```
 
-#### Generated files in the output folder:
+#### Generated files in the /output folder:
 All the MC files have _MC tag in the file name to distinguish them from MD files.
 1. `correlation_analysis_MC.png`
 2. `displacement_hist_MC.png`
